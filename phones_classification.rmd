@@ -1,0 +1,93 @@
+---
+Title: "Staroverova_DKR2_PSA-3"
+output: word_document
+lang: russian
+---
+
+Для анализа будем использовать дата-сет с выборкой 2000 наблюдений о мобильных телефонах. Телефоны разделены на группы по ценовому признаку (price_range группы 0-3 в порядке увеличения их стоимости). Загрузим данные как csv-файл.
+
+```{r}
+library(utils)
+data_phones <- read.csv(file.choose())
+```
+Как наиболее значимые (как потенциально наиболее значимые для цены телефоне) логически переменные выделим:
+battery_power - вместимость батареи (непрерывная)
+ram - объем опретивной памяти (непрерывная)
+int_memory - объем памяти телефона (непрерывная)
+px_height - высота экрана в пикселях (непрерывная)
+px_width - ширина экрана в пикселях (непрерывная)
+n_cores - поколение процессора (непрерывная)
+touch_screen - бинарная переменная: сенсорный экран есть - 1, иначе - 0
+wifi - бинарная переменная: подключение к wifi есть - 1, иначе - 0
+
+
+
+Данную выборку разобьем на тринировочную (n train = 1500 наблюдений) и тестовую (n test 500 наблюдений).
+
+```{r}
+data_phones <- subset(data_phones, select = c(battery_power, ram, int_memory, mobile_wt, px_height, px_width, n_cores,touch_screen, wifi, price_range))
+data_phones <- cbind(data_phones, c(1:2000))
+number <- data_phones$`c(1:2000)`
+train <- (number <= 1500)
+test <- (number > 1500)
+summary(data_phones)
+```
+Данные не скоррелированы:
+
+```{r}
+cor <- cor(phones_train)
+cor
+library(corrplot)
+corrplot(cor)
+cor2 <- cor(data_phones)
+corrplot(cor2)
+```
+Большинство параметров имеют равномерное распределение. Применение логарифмирования для стандартизированных данных помогает несколько исправить ситуацию:
+```{r}
+hist(data_phones$battery_power)
+
+for (i in 1:7){
+  data_phones[, i] <- scale(data_phones[, i])
+}
+```
+
+Однако по формальным тестам параметры нельзя назвать нормально распределенными.
+```{r}
+jb.norm.test(data_phones$ram)
+```
+Проверим Гипотезу о равных ковариационных матрицах для подгрупп телефонов в разных ценовых сегментах. Получаем, стого говоря, данные, которые можно использовать для дискриминантного анализа со строгой гипотезой.
+```{r}
+boxM <- boxM(as.matrix(data_phones[,c("battery_power", "ram", "int_memory", "mobile_wt", "px_height", "px_width", "n_cores","touch_screen", "wifi")]), group = data_phones$price_range)
+boxM
+plot(boxM)
+```
+Проведем дискриминационный анализ:
+```{r}
+lda <- lda(price_range ~ battery_power+ ram+ int_memory+ mobile_wt+ px_height+ px_width+ n_cores+touch_screen+ wifi, data = data_phones, subset = train)
+lda
+plot(lda)
+```
+Попробуем предсказать ответы с помощью нашей модели для тестовой выборки. Посмотрим основную характеристику качества (т.к. данные равнораспределены) - долю верно предсказанных классов. Итак, модель линейного дискриминантного анализа верно  предсказывает 95,2% наблюдений.
+```{r}
+lda.pred <- predict(lda.fit, data_phones[test,])
+names(lda.pred)
+
+lda.class <- lda.pred$class
+table(lda.class, data_phones$price_range[test])
+
+mean(lda.class == data_phones$price_range[test])
+```
+Если ослабить предпосылку о равных ковариационных матрицах, обучим на приведенных данных модель дискриминантного анализа с квадратичным классификатором:
+```{r}
+qda.fit <- qda(price_range ~ battery_power+ ram+ int_memory+ mobile_wt+ px_height+ px_width+ n_cores+touch_screen+ wifi, data = data_phones, subset = train)
+qda.fit
+```
+Проверим качество предсказаний для новой модели: 94% верно предсказанных ответов говорит о том, что качество модели немного ухудшилось. Однако это может быть связано с объемом наблюдений в каждой из выборок (переучилась модель) или с наличием в тестовой выборке выбросов, тк. процент ухудшениия модели незначительный.
+```{r}
+qda.pred <- predict(qda.fit, data_phones[test,])
+qda.class <- qda.pred$class
+table(qda.class, data_phones$price_range[test])
+
+mean(qda.class == data_phones$price_range[test])
+```
+Итак, в помощью моделей дискриминантного анализа на данных с характеристиками телефонов мы можем в достаточно высокой точностью (около 95%) предсказывать ценовую категорию новых устройств. Несмотря на то, что сами параметры не коррелируют между собой, результат получается достаточно однозначным. 
