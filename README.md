@@ -1,4 +1,4 @@
-# phones classification based on price range
+## Phones classification based on a price range
 This project was created as a homework for major "Applied statistical analysis" - course "Classification of statistical Data". Here were used some methods:
 - discriminant analysis (with and without assumption on equal covariation matrix);
 - decision tree
