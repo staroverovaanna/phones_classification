@@ -6,3 +6,4 @@ This project was created as a homework for major "Applied statistical analysis" 
 The results were visualized.
 
 The data used was downloaded from Kaggle [https://www.kaggle.com/iabhishekofficial/mobile-price-classification]
+The original language of markdown comments is russian, english translation is given
